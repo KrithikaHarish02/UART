@@ -1,52 +1,51 @@
+`timescale 1ns/1ps
+`default_nettype none
 
-module uart #(
-    parameter width = 8
+module uart_top #(
+    parameter integer SYS_CLK_FREQ = 50_000_000,
+    parameter integer BAUD_RATE    = 9600
 )(
-    input  wire             sys_clk,
-    input  wire             sys_rst,
-    input  wire             uart_REC_dataH,
-    input  wire             xmitH,
-    input  wire [width-1:0] xmit_dataH,
-    output wire             uart_XMIT_dataH,
-    output wire             xmit_doneH,
-    output wire             rec_readyH,
-    output wire [width-1:0] rec_dataH,
-    output wire             rec_busy,
-    output wire             xmit_active
+    input wire sys_clk,
+    input wire sys_rst_l,
+    input wire xmitH,
+    input wire [7:0] xmit_dataH,
+    input wire uart_REC_dataH,
+    output wire uart_XMIT_dataH,
+    output wire xmit_doneH,
+    output wire xmit_active,
+    output wire [7:0] rec_dataH,
+    output wire rec_readyH,
+    output wire rec_busy,
+    output wire frame_errorH
 );
 
-wire baud_clk;
-wire xmit_done_w;
+wire tick;
 
-u_baud baud_clock_generator (
-    .sys_clk  (sys_clk),
-    .sys_rst  (~sys_rst),
-    .baud_clk (baud_clk)
-);
+baud_gen_div #(
+    .SYS_CLK_FREQ(SYS_CLK_FREQ),
+    .BAUD_RATE(BAUD_RATE)) u_baud_gen (
+    .sys_clk(sys_clk),
+    .sys_rst_l(sys_rst_l),
+    .tick(tick));
 
-transmitter #(
-    .width(width)
-) tx (
-    .uart_clk        (baud_clk),
-    .sys_rst         (sys_rst),
-    .xmitH           (xmitH),
-    .xmit_dataH      (xmit_dataH),
-    .xmit_done       (xmit_done_w),
-    .uart_XMIT_dataH (uart_XMIT_dataH),
-    .xmit_active     (xmit_active)
-);
+uart_transmitter u_tx (
+    .sys_clk(sys_clk),
+    .sys_rst_l(sys_rst_l),
+    .tick(tick),
+    .xmitH(xmitH),
+    .xmit_dataH(xmit_dataH),
+    .uart_XMIT_dataH(uart_XMIT_dataH),
+    .xmit_doneH(xmit_doneH),
+    .xmit_active(xmit_active));
 
-u_rec #(
-    .width(width)
-) receiver_module (
-    .uart_clk       (baud_clk),
-    .sys_rst        (sys_rst),
-    .uart_REC_dataH (uart_REC_dataH),
-    .rec_dataH      (rec_dataH),
-    .rec_busyH      (rec_busy),
-    .rec_readyH     (rec_readyH)
-);
-
-assign xmit_doneH = xmit_done_w;
+uart_receiver u_rx (
+    .sys_clk(sys_clk),
+    .sys_rst_l(sys_rst_l),
+    .tick(tick),
+    .uart_REC_dataH(uart_REC_dataH),
+    .rec_dataH(rec_dataH),
+    .rec_readyH (rec_readyH),
+    .rec_busy(rec_busy),
+    .frame_errorH(frame_errorH));
 
 endmodule
